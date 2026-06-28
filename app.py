@@ -49,19 +49,37 @@ def validate_voucher():
         'hostel': hostel
     })
 
+@app.route('/log-transaction', methods=['POST'])
+def log_transaction():
+    data = request.json
+    hostel = data.get('hostel', '')
+    plan = data.get('plan', '')
+    amount = data.get('amount', 0)
+    payment_type = data.get('payment_type', '')
+    reference = data.get('reference', '')
+
+    if not hostel or not plan or not reference:
+        return jsonify({'success': False, 'message': 'Missing required fields'})
+
+    supabase.table('transactions').insert({
+        'hostel': hostel,
+        'plan': plan,
+        'amount': int(amount),
+        'payment_type': payment_type,
+        'reference': reference
+    }).execute()
+
+    return jsonify({'success': True})
+
 @app.route('/recover-session', methods=['POST'])
 def recover_session():
     data = request.json
     reference = data.get('reference', '').upper()
-
     if not reference:
         return jsonify({'success': False, 'message': 'Reference is required'})
-
     result = supabase.table('transactions').select('*').eq('reference', reference).single().execute()
-
     if not result.data:
         return jsonify({'success': False, 'message': 'Transaction not found'})
-
     return jsonify({
         'success': True,
         'plan': result.data['plan'],
