@@ -49,6 +49,54 @@ def validate_voucher():
         'hostel': hostel
     })
 
+@app.route('/recover-session', methods=['POST'])
+def recover_session():
+    data = request.json
+    reference = data.get('reference', '').upper()
+
+    if not reference:
+        return jsonify({'success': False, 'message': 'Reference is required'})
+
+    result = supabase.table('transactions').select('*').eq('reference', reference).single().execute()
+
+    if not result.data:
+        return jsonify({'success': False, 'message': 'Transaction not found'})
+
+    return jsonify({
+        'success': True,
+        'plan': result.data['plan'],
+        'amount': result.data['amount'],
+        'hostel': result.data['hostel']
+    })
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    result = supabase.table('transactions').select('*').execute()
+
+    if not result.data:
+        return jsonify({'success': True, 'hostels': {}, 'transactions': []})
+
+    hostels = {
+        'new-male': {'sessions': 0, 'revenue': 0},
+        'new-female': {'sessions': 0, 'revenue': 0},
+        'abuja': {'sessions': 0, 'revenue': 0},
+        'nana': {'sessions': 0, 'revenue': 0}
+    }
+
+    for t in result.data:
+        if t['hostel'] in hostels:
+            hostels[t['hostel']]['sessions'] += 1
+            hostels[t['hostel']]['revenue'] += t['amount']
+
+    recent = result.data[-10:]
+    recent.reverse()
+
+    return jsonify({
+        'success': True,
+        'hostels': hostels,
+        'transactions': recent
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
